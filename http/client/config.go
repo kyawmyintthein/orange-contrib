@@ -13,6 +13,11 @@ type HttpClientCfg struct {
 
 	*/
 	APISpecificRetrySetting map[string]RetryCfg `json:"api_specific_retry_setting" mapstructure:"api_specific_retry_setting"`
+
+	TurnOffLogger         bool `json:"turn_off_logger" mapstructure:"turn_off_logger"`
+	TurnOffNewrelic       bool `json:"turn_off_newrelic" mapstructure:"turn_off_newrelic"`
+	TurnOffJaeger         bool `json:"turn_off_jaeger" mapstructure:"turn_off_jaeger"`
+	TurnOffCircuitBreaker bool `json:"turn_off_circuit_breaker" mapstructure:"turn_off_circuit_breaker"`
 }
 
 type RetryCfg struct {

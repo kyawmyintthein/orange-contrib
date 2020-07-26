@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/kyawmyintthein/orange-contrib/cb"
 	"github.com/kyawmyintthein/orange-contrib/logging"
 	"github.com/kyawmyintthein/orange-contrib/option"
 	"github.com/kyawmyintthein/orange-contrib/tracing/jaeger"
@@ -49,6 +50,20 @@ func WithJaeger(a jaeger.JaegerTracer) option.Option {
 			o.Context = context.Background()
 		}
 		o.Context = context.WithValue(o.Context, jaegerTracerKey{}, a)
+	}
+}
+
+/*
+	WithCircuitBreaker - is to provide circuit breaker feature for http client
+*/
+type circuitBreakerKey struct{}
+
+func WithCircuitBreaker(obj cb.CircuitBreaker) option.Option {
+	return func(o *option.Options) {
+		if o.Context == nil {
+			o.Context = context.Background()
+		}
+		o.Context = context.WithValue(o.Context, circuitBreakerKey{}, obj)
 	}
 }
 
