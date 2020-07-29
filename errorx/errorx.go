@@ -6,12 +6,14 @@ import (
 	"fmt"
 	"path"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 )
 
 const (
-	NoErrorMessage string = "NoErrorMessage"
+	NoErrorMessage        string = "NoErrorMessage"
+	DefaultHttpStatusCode int    = 500 // Internal Server Error
 )
 
 type ErrorX struct {
@@ -56,9 +58,22 @@ func (e *ErrorX) GetArgs() []interface{} {
 	return e.args
 }
 
-// Return nested error
 func (e *ErrorX) GetMessage() string {
 	return e.messageFormat
+}
+
+// Return nested error
+func (e *ErrorX) StatusCode() int {
+	arr := strconv.Itoa(e.code)
+	if len(arr) >= 0 {
+		f3d := arr[:3]
+		statusCode, err := strconv.Atoi(f3d)
+		if err != nil {
+			return DefaultHttpStatusCode
+		}
+		return statusCode
+	}
+	return DefaultHttpStatusCode
 }
 
 func (e *ErrorX) Wrap(err error) error {
