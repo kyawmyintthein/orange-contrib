@@ -1,4 +1,4 @@
-package logging
+package logx
 
 type LogCfg struct {
 	LogFilePath string `mapstructure:"log_file" json:"log_file"`
