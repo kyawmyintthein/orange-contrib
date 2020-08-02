@@ -29,15 +29,6 @@ func NewErrorX(messageFormat string, args ...interface{}) *ErrorX {
 	return err
 }
 
-func New(code int, id string, messageFormat string, args ...interface{}) *ErrorX {
-	err := &ErrorX{
-		cause:         nil,
-		messageFormat: messageFormat,
-		args:          args,
-	}
-	return err
-}
-
 func (e *ErrorX) Message() string {
 	return e.messageFormat
 }

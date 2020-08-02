@@ -1,4 +1,4 @@
-package client
+package clientx
 
 import (
 	"bytes"
@@ -9,12 +9,11 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/kyawmyintthein/orange-contrib/cb"
-	"github.com/kyawmyintthein/orange-contrib/errorx"
-	"github.com/kyawmyintthein/orange-contrib/logging"
-	"github.com/kyawmyintthein/orange-contrib/option"
-	"github.com/kyawmyintthein/orange-contrib/tracing/jaeger"
-	"github.com/kyawmyintthein/orange-contrib/tracing/newrelic"
+	"github.com/afex/hystrix-go/hystrix"
+	"github.com/kyawmyintthein/orange-contrib/logx"
+	"github.com/kyawmyintthein/orange-contrib/optionx"
+	"github.com/kyawmyintthein/orange-contrib/tracingx/jaegerx"
+	"github.com/kyawmyintthein/orange-contrib/tracingx/newrelicx"
 	"github.com/opentracing-contrib/go-stdlib/nethttp"
 	"github.com/opentracing/opentracing-go"
 )
@@ -25,6 +24,15 @@ const (
 	httpPostMethod   string = "POST"
 	httpPutMethod    string = "PUT"
 	httpPatchMethod  string = "PATCH"
+)
+
+const (
+	defaultHytrixTimeout               int = 3000 // millisecond
+	defaultHytrixRetryCount                = 0
+	defaultHytrixMaxConcurrentRequests     = 100
+	defaultHytrixErrorPercentThreshold     = 25
+	defaultHytrixSleepWindow               = 1000 // second
+	defaultRequestVolumeThreshold          = 10
 )
 
 const (
@@ -43,67 +51,67 @@ var (
 		time.Duration(200 * time.Millisecond),
 		time.Duration(1 * time.Second),
 	}
-
-	err5xx = errorx.New(001, "Server_Return_5XX_StatusCode", "server return 5xx status code")
 )
 
 type Header map[string]string
 
 type HttpClient interface {
-	POST(context.Context, string, io.Reader, ...option.Option) (*http.Response, error)
-	PUT(context.Context, string, io.Reader, ...option.Option) (*http.Response, error)
-	PATCH(context.Context, string, io.Reader, ...option.Option) (*http.Response, error)
-	DELETE(context.Context, string, io.Reader, ...option.Option) (*http.Response, error)
-	GET(context.Context, string, ...option.Option) (*http.Response, error)
+	POST(context.Context, string, io.Reader, ...optionx.Option) (*http.Response, error)
+	PUT(context.Context, string, io.Reader, ...optionx.Option) (*http.Response, error)
+	PATCH(context.Context, string, io.Reader, ...optionx.Option) (*http.Response, error)
+	DELETE(context.Context, string, io.Reader, ...optionx.Option) (*http.Response, error)
+	GET(context.Context, string, ...optionx.Option) (*http.Response, error)
+}
+
+type HytrixHelper interface {
+	ConfigureCommand(context.Context, string)
 }
 
 type httpClient struct {
-	cfg *HttpClientCfg
-
-	logger         logging.Logger
-	jaegerTracer   jaeger.JaegerTracer
-	newrelicTracer newrelic.NewrelicTracer
-	circuitBreaker cb.CircuitBreaker
+	config         *HttpClientCfg
+	logger         logx.Logger
+	jaegerTracer   jaegerx.JaegerTracer
+	newrelicTracer newrelicx.NewrelicTracer
 }
 
-func DefaultHttpClient(cfg *HttpClientCfg, opts ...option.Option) HttpClient {
+func NewHttpClient(cfg *HttpClientCfg, opts ...option.Option) HttpClient {
 	options := option.NewOptions(opts...)
 
 	httpClient := &httpClient{
-		cfg: cfg,
+		config: cfg,
 	}
 
 	//set newrelic
-	newrelicTracer, ok := options.Context.Value(newrelicTracerKey{}).(newrelic.NewrelicTracer)
+	newrelicTracer, ok := options.Context.Value(newrelicTracerKey{}).(newrelicx.NewrelicTracer)
 	if newrelicTracer != nil && ok {
 		httpClient.newrelicTracer = newrelicTracer
 	}
 
 	// set jaeger
-	jaeger, ok := options.Context.Value(jaegerTracerKey{}).(jaeger.JaegerTracer)
+	jaeger, ok := options.Context.Value(jaegerTracerKey{}).(jaegerx.JaegerTracer)
 	if jaeger != nil || !ok {
 		httpClient.jaegerTracer = jaeger
 	}
 
-	// set circuit breaker object
-	circuitBreaker, ok := options.Context.Value(circuitBreakerKey{}).(cb.CircuitBreaker)
-	if circuitBreaker != nil || !ok {
-		httpClient.circuitBreaker = circuitBreaker
-	}
-
 	// set logger
-	logger, ok := options.Context.Value(loggerKey{}).(logging.Logger)
+	logger, ok := options.Context.Value(loggerKey{}).(logx.Logger)
 	if logger != nil && ok {
 		httpClient.logger = logger
 	} else {
 		httpClient.logger = logging.DefaultLogger()
 	}
 
+	if httpClient.config.HytrixSetting.Enbled {
+		for commandName, _ := range httpClient.config.HytrixSetting.CommandSetting {
+			err := httpClient.ConfigureCommand(context.Background(), commandName)
+		}
+	}
+
 	return httpClient
 }
 
-func (httpClient *httpClient) GET(ctx context.Context, url string, opts ...option.Option) (*http.Response, error) {
-	options := option.NewOptions(opts...)
+func (httpClient *httpClient) GET(ctx context.Context, url string, opts ...optionx.Option) (*http.Response, error) {
+	options := optionx.NewOptions(opts...)
 	retryConfig := httpClient.getRetrySetting(ctx, httpGetMethod, url)
 	operationName := httpClient.getOpNameFromOption(url, httpGetMethod, options)
 
@@ -140,8 +148,8 @@ func (httpClient *httpClient) GET(ctx context.Context, url string, opts ...optio
 	return resp, nil
 }
 
-func (httpClient *httpClient) POST(ctx context.Context, url string, body io.Reader, opts ...option.Option) (*http.Response, error) {
-	options := option.NewOptions(opts...)
+func (httpClient *httpClient) POST(ctx context.Context, url string, body io.Reader, opts ...optionx.Option) (*http.Response, error) {
+	options := optionx.NewOptions(opts...)
 	retryConfig := httpClient.getRetrySetting(ctx, httpPostMethod, url)
 	operationName := httpClient.getOpNameFromOption(url, httpPostMethod, options)
 
@@ -178,8 +186,8 @@ func (httpClient *httpClient) POST(ctx context.Context, url string, body io.Read
 	return resp, nil
 }
 
-func (httpClient *httpClient) PUT(ctx context.Context, url string, body io.Reader, opts ...option.Option) (*http.Response, error) {
-	options := option.NewOptions(opts...)
+func (httpClient *httpClient) PUT(ctx context.Context, url string, body io.Reader, opts ...optionx.Option) (*http.Response, error) {
+	options := optionx.NewOptions(opts...)
 	retryConfig := httpClient.getRetrySetting(ctx, httpPutMethod, url)
 	operationName := httpClient.getOpNameFromOption(url, httpPutMethod, options)
 
@@ -216,8 +224,8 @@ func (httpClient *httpClient) PUT(ctx context.Context, url string, body io.Reade
 	return resp, nil
 }
 
-func (httpClient *httpClient) PATCH(ctx context.Context, url string, body io.Reader, opts ...option.Option) (*http.Response, error) {
-	options := option.NewOptions(opts...)
+func (httpClient *httpClient) PATCH(ctx context.Context, url string, body io.Reader, opts ...optionx.Option) (*http.Response, error) {
+	options := optionx.NewOptions(opts...)
 	retryConfig := httpClient.getRetrySetting(ctx, httpPatchMethod, url)
 	operationName := httpClient.getOpNameFromOption(url, httpPatchMethod, options)
 
@@ -254,8 +262,8 @@ func (httpClient *httpClient) PATCH(ctx context.Context, url string, body io.Rea
 	return resp, nil
 }
 
-func (httpClient *httpClient) DELETE(ctx context.Context, url string, body io.Reader, opts ...option.Option) (*http.Response, error) {
-	options := option.NewOptions(opts...)
+func (httpClient *httpClient) DELETE(ctx context.Context, url string, body io.Reader, opts ...optionx.Option) (*http.Response, error) {
+	options := optionx.NewOptions(opts...)
 	retryConfig := httpClient.getRetrySetting(ctx, httpDeleteMethod, url)
 	operationName := httpClient.getOpNameFromOption(url, httpDeleteMethod, options)
 
@@ -292,7 +300,7 @@ func (httpClient *httpClient) DELETE(ctx context.Context, url string, body io.Re
 	return resp, nil
 }
 
-func (httpClient *httpClient) setHeaderFromOption(req *http.Request, options option.Options) {
+func (httpClient *httpClient) setHeaderFromOption(req *http.Request, options optionx.Options) {
 	header, ok := options.Context.Value(httpHeaderKey{}).(Header)
 	if header == nil || !ok {
 		return
@@ -302,7 +310,7 @@ func (httpClient *httpClient) setHeaderFromOption(req *http.Request, options opt
 	}
 }
 
-func (httpClient *httpClient) getOpNameFromOption(url string, httpMethod string, options option.Options) string {
+func (httpClient *httpClient) getOpNameFromOption(url string, httpMethod string, options optionx.Options) string {
 	opName, ok := options.Context.Value(operationNameKey{}).(string)
 	if opName == "" || !ok {
 		return fmt.Sprintf("%s::%s", httpMethod, url)
@@ -343,7 +351,7 @@ func (httpClient *httpClient) getAPISpecificRetrySetting(ctx context.Context, ht
 	return retryConfig, ok
 }
 
-func (httpClient *httpClient) firstAttemptAndRetry(ctx context.Context, retryConfig *RetryCfg, req *http.Request, operationName string, options option.Options) (*http.Response, error) {
+func (httpClient *httpClient) firstAttemptAndRetry(ctx context.Context, retryConfig *RetryCfg, req *http.Request, operationName string, options optionx.Options) (*http.Response, error) {
 	var (
 		bodyReader *bytes.Reader
 		err        error
@@ -361,13 +369,13 @@ func (httpClient *httpClient) firstAttemptAndRetry(ctx context.Context, retryCon
 
 	// without retry
 	if !retryConfig.Enabled {
-		if httpClient.cfg.TurnOffCircuitBreaker || httpClient.circuitBreaker == nil || !httpClient.circuitBreaker.IsEnabled() {
+		if httpClient.cfg.TurnOffHytrix {
 			// no retry and circuit breaker
 			return httpClient.sendHttpRequest(ctx, req, operationName, options)
 		}
 
 		// no retry with circuit breaker
-		httpClient.circuitBreaker.Do(ctx, operationName,
+		hystrix.Do(ctx, operationName,
 			func() error {
 				resp, err := httpClient.sendHttpRequest(ctx, req, operationName, options)
 				if bodyReader != nil {
@@ -391,7 +399,7 @@ func (httpClient *httpClient) firstAttemptAndRetry(ctx context.Context, retryCon
 
 	// with retry
 	for count := uint(0); count <= retryConfig.MaxRetryAttempts; count++ {
-		if httpClient.cfg.TurnOffCircuitBreaker || httpClient.circuitBreaker == nil || !httpClient.circuitBreaker.IsEnabled() {
+		if httpClient.cfg.TurnOffHytrix {
 			// retry without circuit breaker
 			resp, err := httpClient.sendHttpRequest(ctx, req, operationName, options)
 			if bodyReader != nil {
@@ -411,7 +419,7 @@ func (httpClient *httpClient) firstAttemptAndRetry(ctx context.Context, retryCon
 			}
 		} else {
 			// retry with circuit beaker
-			httpClient.circuitBreaker.Do(ctx, operationName,
+			hystrix.Do(ctx, operationName,
 				func() error {
 					resp, err := httpClient.sendHttpRequest(ctx, req, operationName, options)
 					if bodyReader != nil {
@@ -445,7 +453,7 @@ func (httpClient *httpClient) firstAttemptAndRetry(ctx context.Context, retryCon
 	return resp, err
 }
 
-func (httpClient *httpClient) sendHttpRequest(ctx context.Context, req *http.Request, name string, options option.Options) (*http.Response, error) {
+func (httpClient *httpClient) sendHttpRequest(ctx context.Context, req *http.Request, name string, options optionx.Options) (*http.Response, error) {
 	client := http.Client{Transport: &nethttp.Transport{}}
 	requestTimeout, ok := options.Context.Value(httpRequestTimeoutKey{}).(time.Duration)
 	if !ok {
@@ -464,4 +472,52 @@ func (httpClient *httpClient) sendHttpRequest(ctx context.Context, req *http.Req
 
 	response, err := client.Do(req)
 	return response, err
+}
+
+func (httpClient *httpClient) ConfigureCommand(ctx context.Context, commandName string) {
+	hytrixSetting, foundCommand := httpClient.config.hytrixSetting.CommandSetting[commandName]
+	if !foundCommand {
+		logx.Infof(ctx, "[%s] command '%s' not found in Hytrix configuration setting", PackageName, commandName)
+		return
+	}
+
+	if hytrixSetting.Timeout == 0 {
+		hytrixSetting.Timeout = defaultHytrixTimeout
+	}
+
+	if hytrixSetting.MaxConcurrentRequests == 0 {
+		hytrixSetting.MaxConcurrentRequests = defaultHytrixMaxConcurrentRequests
+	}
+
+	if hytrixSetting.RequestVolumeThreshold == 0 {
+		hytrixSetting.RequestVolumeThreshold = defaultHytrixRequestVolumeThreshold
+	}
+
+	if hytrixSetting.SleepWindow == 0 {
+		hytrixSetting.SleepWindow = defaultHytrixSleepWindow
+	}
+
+	if hytrixSetting.ErrorPercentThreshold == 0 {
+		hytrixSetting.ErrorPercentThreshold = defaultHytrixErrorPercentThreshold
+	}
+
+	if hytrixSetting.Enabled {
+		hystrix.ConfigureCommand(commandName, hystrix.CommandConfig{
+			Timeout:                durationToInt(hytrixSetting.Timeout, time.Millisecond),
+			MaxConcurrentRequests:  hytrixSetting.MaxConcurrentRequests,
+			RequestVolumeThreshold: hytrixSetting.RequestVolumeThreshold,
+			SleepWindow:            hytrixSetting.SleepWindow,
+			ErrorPercentThreshold:  hytrixSetting.ErrorPercentThreshold,
+		})
+		logx.Debugf(ctx, "[%s] Command '%s' is configured as %+v", hytrixSetting)
+	}
+}
+
+func durationToInt(duration, unit time.Duration) int {
+	durationAsNumber := duration / unit
+
+	if int64(durationAsNumber) > int64(maxInt) {
+		return maxInt
+	}
+	return int(durationAsNumber)
 }

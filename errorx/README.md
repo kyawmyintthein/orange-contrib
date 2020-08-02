@@ -3,6 +3,7 @@
 
 
 # Features
+* Modularized features
 * Wrap the error to retrieve the cause of an error
 * Formatted printing of errors
 * Support error stacktrace
@@ -11,9 +12,9 @@
 
 # Usage
 
-### Define new error
+### Define new error with message formatting
 ```
-    err := errorx.New("file_not_found_error", 400001, "File not found , File : %s", "/tmp/dat")
+    err := errorx.NewErrorX("File not found , File : %s", "/tmp/dat")
 ```
 ___
 
@@ -21,7 +22,7 @@ ___
 ```
     dat, err := ioutil.ReadFile("/tmp/dat")
     if err != nil{
-        fileNotFoundErr := errorx.New("file_not_found_error", 400001, "File not found , File : %s", "/tmp/dat").Wrap(err)
+        fileNotFoundErr := errorx.NewErrorX("File not found , File : %s", "/tmp/dat").Wrap(err)
     }
 
     // retrieving cause error
@@ -35,28 +36,19 @@ ___
         fmt.Println(errRootCause) // Result = "not found"
 	}
 ```
-
-___
-
-### Error message formatting
-```
-    err := errorx.New("file_not_found_error", 400001, "File not found , File : '%s'", "/tmp/dat")
-    errWithFormatter, ok := err.(errorx.ErrorFormatter)
-    if ok {
-        formattedMessage := errWithFormatter.FormattedMessage()
-        fmt.Println(formattedMessage) // File not found , File : '/tmp/dat'"
-    }
-```
-
 ___
 
 ### Retriving Error Code and Http Status Code
 ```
-    err := errorx.New("file_not_found_error", 400001, "File not found , File : %s", "/tmp/dat").Wrap(err)
-    errWithCode, ok := err.(errorx.ErrorCode)
-    if ok {
-        errCode := errWithCode.Code()
-        fmt.Println(errCode) // result 400001
+    type MyCustomError struct{
+        *errorx.ErrorX
+        *errorx.HttpError
+    }
+
+    var err error
+    err = &MyCustomError{
+        errorx.NewErrorX("File not found , File : %s", "/tmp/dat")
+        errorx.ErrorWithHttpStatus(400)
     }
 
     errWithHttpStatus, ok := err.(errorx.HttpError)
@@ -72,7 +64,17 @@ ___
 
 ### Localization Support
 ```
-    err := errorx.New("file_not_found_error", 400001, "File not found , File : %s", "/tmp/dat").Wrap(err)
+    type MyCustomError struct{
+        *errorx.ErrorX
+        *errorx.ErrorID
+    }
+
+    var err error
+    err = &MyCustomError{
+        errorx.NewErrorX("File not found , File : %s", "/tmp/dat")
+        errorx.NewErrorWithID("file_not_found_error")
+    }
+
     errWithCode, ok := err.(errorx.ErrorID)
     if ok {
         errID := errWithCode.ID()
@@ -92,7 +94,16 @@ ErrorID can be used as key in localization. For Example:
 
 ##### Sample localization code
 ```
-    err := errorx.New("file_not_found_error", 400001, "File not found , File : %s", "/tmp/dat").Wrap(err)
+    type MyCustomError struct{
+        *errorx.ErrorX
+        *errorx.ErrorID
+    }
+
+    var err error
+    err = &MyCustomError{
+        errorx.NewErrorX("File not found , File : %s", "/tmp/dat")
+        errorx.NewErrorWithID("file_not_found_error")
+    }
 
     var args []interface{}
     errWithArgs, ok := err.(errorx.ErrorFormatter)
@@ -113,7 +124,17 @@ ___
 
 ### Error's stacktrace
 ```
-    err := errorx.New("file_not_found_error", 400001, "File not found , File : %s", "/tmp/dat").Wrap(err)
+    type MyCustomError struct{
+        *errorx.ErrorX
+        *errorx.ErrorStacktrace
+    }
+
+    var err error
+    err = &MyCustomError{
+        errorx.NewErrorX("File not found , File : %s", "/tmp/dat")
+        errorx.NewErrorWithStackTrace(2,2)
+    }
+    
     errWithStackTrace, ok := err.(errorx.StackTracer)
     if ok {
         stackTraceJSON := errWithStackTrace.GetStackAsJSON()
@@ -175,5 +196,4 @@ main.go
             // Unknown error detected
         }
     }
-
-``
+```

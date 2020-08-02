@@ -1,4 +1,4 @@
-package client
+package clientx
 
 import "time"
 
@@ -12,12 +12,28 @@ type HttpClientCfg struct {
 							 "[GET]::/users/profile": retry setting
 
 	*/
+
 	APISpecificRetrySetting map[string]RetryCfg `json:"api_specific_retry_setting" mapstructure:"api_specific_retry_setting"`
 
-	TurnOffLogger         bool `json:"turn_off_logger" mapstructure:"turn_off_logger"`
-	TurnOffNewrelic       bool `json:"turn_off_newrelic" mapstructure:"turn_off_newrelic"`
-	TurnOffJaeger         bool `json:"turn_off_jaeger" mapstructure:"turn_off_jaeger"`
-	TurnOffCircuitBreaker bool `json:"turn_off_circuit_breaker" mapstructure:"turn_off_circuit_breaker"`
+	HytrixSetting   HytrixCfg `json:"hytrix_setting" mapstructure:"hytrix_setting"`
+	TurnOffLogger   bool      `json:"turn_off_logger" mapstructure:"turn_off_logger"`
+	TurnOffNewrelic bool      `json:"turn_off_newrelic" mapstructure:"turn_off_newrelic"`
+	TurnOffJaeger   bool      `json:"turn_off_jaeger" mapstructure:"turn_off_jaeger"`
+}
+
+type HytrixCfg struct {
+	Enabled        bool                        `json:"enabled" mapstructure:"enabled"`
+	CommandSetting map[string]HytrixCommandCfg `json:"command_setting" mapstructure:"command_setting"`
+}
+
+type HytrixCommandCfg struct {
+	Enabled                bool `json:"enabled" mapstructure:"enabled"`
+	RetryCount             int  `json:"retry_count" mapstructure:"retry_count"`
+	Timeout                int  `json:"timeout" mapstructure:"timeout"`
+	MaxConcurrentRequest   int  `json:"max_concurrent_request" mapstructure:"max_concurrent_request"`
+	ErrorPercentThreshold  int  `json:"error_percent_threshold" mapstructure:"error_percent_threshold"`
+	SleepWindow            int  `json:"sleep_window" mapstructure:"sleep_window"`
+	RequestVolumeThreshold int  `json:"request_volume_threshold" mapstructure:"request_volume_threshold"`
 }
 
 type RetryCfg struct {

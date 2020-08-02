@@ -6,8 +6,8 @@ type NotAvailable struct {
 	*errorx.ErrorX
 }
 
-func NewNotAvailabeError() *NotAvailable {
-	return errorx.NewErrorX("[%s] new-relic tracer is not avaliable", Package)
+func NotAvailableError() *NotAvailable {
+	return &NotAvailable{
+		errorx.NewErrorX("[%s] new-relic tracer is not avaliable", PackageName),
+	}
 }
-
-func (err *NotAvailable) Wrap(cause error) { err.Wrap(cause) }

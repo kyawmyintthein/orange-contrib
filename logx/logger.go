@@ -3,6 +3,7 @@ package logx
 import (
 	"context"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -51,13 +52,20 @@ const (
 )
 
 var (
+	once          sync.Once
 	defaultLogger Logger
 )
 
 func Init(cfg *LogCfg) {
 	if defaultLogger == nil {
-
+		once.Do(func() {
+			initDefaultLogger(cfg)
+		})
 	}
+}
+
+func initDefaultLogger(cfg *LogCfg) {
+	defaultLogger = new(cfg)
 }
 
 func new(cfg *LogCfg) Logger {
@@ -69,6 +77,10 @@ func new(cfg *LogCfg) Logger {
 	go logger.watchLogRotation()
 
 	return logger
+}
+
+func New(cfg *LogCfg) Logger {
+	return new(cfg)
 }
 
 // create new logrus object
@@ -92,26 +104,26 @@ func (logger *logger) newLogrus() {
 
 	if logger.cfg.LogFilePath == "" {
 		logger.logrus.Out = os.Stdout
-		logger.logrus.Errorln("empty log file. Set 'Stdout' as default")
-		logger.logrus.Info("Initialized Logger successfully")
+		logger.logrus.Errorf("[%s]:: empty log file. Set 'Stdout' as default \n", PackageName)
+		logger.logrus.Infof("[%s]:: initialized logx successfully \n", PackageName)
 		return
 	}
 
 	logfile, err := os.OpenFile(logger.cfg.LogFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0755)
 	if err != nil {
-		logger.logrus.Errorln("Failed to set log file : '%v'. Set 'Stdout' as default", err)
+		logger.logrus.Errorln("[%s]:: failed to set log file. Error : '%v'. Set 'Stdout' as default", PackageName, err)
 		return
 	}
 
 	logger.logfile = logfile
 	logger.logrus.Out = logger.logfile
 
-	logger.logrus.Info("Initialized Logger successfully")
+	logger.logrus.Info("[%s]:: initialized logx successfully", PackageName)
 }
 
 func (logger *logger) watchLogRotation() {
 	if !logger.cfg.LogRotation {
-		logger.logrus.Info("disabled log rotation")
+		logger.logrus.Info("[%s]:: disabled log rotation", PackageName)
 		return
 	}
 
@@ -141,7 +153,7 @@ func (logger *logger) watchLogRotation() {
 					}
 				}
 			case err := <-watcher.Errors:
-				logger.logrus.Error("error:", err)
+				logger.logrus.Error("[%s]:: failed to watch log file, Error :", err)
 			}
 		}
 	}()
@@ -152,10 +164,6 @@ func (logger *logger) watchLogRotation() {
 	}
 }
 
-func New(cfg *LogCfg) Logger {
-	return new(cfg)
-}
-
 func (logger *logger) SetLogLevel(level string) error {
 	logLevel, err := logrus.ParseLevel(level)
 	if err != nil {
@@ -164,6 +172,15 @@ func (logger *logger) SetLogLevel(level string) error {
 	}
 	logger.logrus.Level = logLevel
 	return nil
+}
+
+func getLogger() Logger {
+	if defaultLogger == nil {
+		once.Do(func() {
+			initDefaultLogger(&LogCfg{})
+		})
+	}
+	return defaultLogger
 }
 
 func (l *logger) Error(ctx context.Context, err error, args ...interface{}) {

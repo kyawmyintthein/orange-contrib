@@ -5,6 +5,7 @@ go 1.14
 require (
 	github.com/afex/hystrix-go v0.0.0-20180502004556-fa1af6a1f4f5
 	github.com/fsnotify/fsnotify v1.4.9
+	github.com/gin-gonic/gin v1.6.3
 	github.com/go-chi/chi v4.1.2+incompatible
 	github.com/newrelic/go-agent v3.8.1+incompatible
 	github.com/opentracing-contrib/go-stdlib v1.0.0

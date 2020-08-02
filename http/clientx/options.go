@@ -1,14 +1,13 @@
-package client
+package clientx
 
 import (
 	"context"
 	"time"
 
-	"github.com/kyawmyintthein/orange-contrib/cb"
-	"github.com/kyawmyintthein/orange-contrib/logging"
-	"github.com/kyawmyintthein/orange-contrib/option"
-	"github.com/kyawmyintthein/orange-contrib/tracing/jaeger"
-	"github.com/kyawmyintthein/orange-contrib/tracing/newrelic"
+	"github.com/kyawmyintthein/orange-contrib/logx"
+	"github.com/kyawmyintthein/orange-contrib/optionx"
+	"github.com/kyawmyintthein/orange-contrib/tracingx/jaegerx"
+	"github.com/kyawmyintthein/orange-contrib/tracingx/newrelicx"
 )
 
 /*
@@ -16,8 +15,8 @@ import (
 */
 type newrelicTracerKey struct{}
 
-func WithNewrelic(obj newrelic.NewrelicTracer) option.Option {
-	return func(o *option.Options) {
+func WithNewrelic(obj newrelicx.NewrelicTracer) optionx.Option {
+	return func(o *optionx.Options) {
 		if o.Context == nil {
 			o.Context = context.Background()
 		}
@@ -30,12 +29,12 @@ func WithNewrelic(obj newrelic.NewrelicTracer) option.Option {
 */
 type loggerKey struct{}
 
-func WithLogger(a logging.Logger) option.Option {
-	return func(o *option.Options) {
+func WithLogger(log logx.Logger) optionx.Option {
+	return func(o *optionx.Options) {
 		if o.Context == nil {
 			o.Context = context.Background()
 		}
-		o.Context = context.WithValue(o.Context, loggerKey{}, a)
+		o.Context = context.WithValue(o.Context, loggerKey{}, log)
 	}
 }
 
@@ -44,8 +43,8 @@ func WithLogger(a logging.Logger) option.Option {
 */
 type jaegerTracerKey struct{}
 
-func WithJaeger(a jaeger.JaegerTracer) option.Option {
-	return func(o *option.Options) {
+func WithJaeger(a jaegerx.JaegerTracer) optionx.Option {
+	return func(o *optionx.Options) {
 		if o.Context == nil {
 			o.Context = context.Background()
 		}
@@ -54,26 +53,12 @@ func WithJaeger(a jaeger.JaegerTracer) option.Option {
 }
 
 /*
-	WithCircuitBreaker - is to provide circuit breaker feature for http client
-*/
-type circuitBreakerKey struct{}
-
-func WithCircuitBreaker(obj cb.CircuitBreaker) option.Option {
-	return func(o *option.Options) {
-		if o.Context == nil {
-			o.Context = context.Background()
-		}
-		o.Context = context.WithValue(o.Context, circuitBreakerKey{}, obj)
-	}
-}
-
-/*
 	WithHeader - is to provide custom http header key and value to http client.
 */
 type httpHeaderKey struct{}
 
-func WithHeader(obj Header) option.Option {
-	return func(o *option.Options) {
+func WithHeader(obj Header) optionx.Option {
+	return func(o *optionx.Options) {
 		if o.Context == nil {
 			o.Context = context.Background()
 		}
@@ -89,8 +74,8 @@ func WithHeader(obj Header) option.Option {
 */
 type operationNameKey struct{}
 
-func WithOpName(name string) option.Option {
-	return func(o *option.Options) {
+func WithOpName(name string) optionx.Option {
+	return func(o *optionx.Options) {
 		if o.Context == nil {
 			o.Context = context.Background()
 		}
@@ -104,8 +89,8 @@ func WithOpName(name string) option.Option {
 */
 type retrySettingKey struct{}
 
-func WithRetrySetting(obj *RetryCfg) option.Option {
-	return func(o *option.Options) {
+func WithRetrySetting(obj *RetryCfg) optionx.Option {
+	return func(o *optionx.Options) {
 		if o.Context == nil {
 			o.Context = context.Background()
 		}

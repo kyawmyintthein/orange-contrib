@@ -1,6 +1,6 @@
 package newrelicx
 
-const(
-	Name := "NewrelicX"
-	Version := "v0.0.1"
+const (
+	PackageName = "NewrelicX"
+	Version     = "v0.0.1"
 )

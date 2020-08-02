@@ -63,7 +63,7 @@ func New(cfg *NewrelicCfg, opts ...optionx.Option) (NewrelicTracer, error) {
 func (service *newrelicTracer) ChiMiddleware(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		urlPattern := getURLPattern(r)
-		_, ok := service.cfg.SkipUrls[urlPattern]
+		_, ok := service.cfg.SkipURLs[urlPattern]
 		if !ok {
 			service.logger.Infof(r.Context(), "URL: '%s' is skip", urlPattern)
 		}
@@ -114,7 +114,7 @@ func (service *newrelicTracer) RecordDatastoreMetric(txn newrelic.Transaction, p
 
 func (service *newrelicTracer) RecordExternalMetric(r *http.Request, opName string) (*newrelic.ExternalSegment, error) {
 	if !service.cfg.Enabled || service.app == nil {
-		return nil, NewNotAvailabeError()
+		return nil, NotAvailableError()
 	}
 
 	txn := newrelic.FromContext(r.Context())
@@ -134,7 +134,7 @@ func (service *newrelicTracer) RecordCustomMetric(transactionName string, value 
 
 func (service *newrelicTracer) RecordBackgroundProcessMetric(transactionName string) (newrelic.Transaction, error) {
 	if !service.cfg.Enabled || service.app == nil {
-		return nil, NewNotAvailabeError()
+		return nil, NotAvailableError()
 	}
 	return service.app.StartTransaction(transactionName, nil, nil), nil
 }

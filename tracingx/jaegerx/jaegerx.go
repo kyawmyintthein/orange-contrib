@@ -20,7 +20,7 @@ const (
 	REQUEST_URI = "request.uri"
 )
 
-type Jaeger interface {
+type JaegerTracer interface {
 	MiddlewareTracer(http.Handler) http.Handler
 	HttpClientTracer(context.Context, *http.Request, string) opentracing.Span
 	Close() error
