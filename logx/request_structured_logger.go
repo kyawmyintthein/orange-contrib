@@ -46,14 +46,14 @@ func (l *RequestStructureLogger) NewLogEntry(r *http.Request) middleware.LogEntr
 	return entry
 }
 
-func (l *RequestStructureLogger) NewStructuredEntry(r *http.Request) logmiddleware.CustomLogEntry {
+func (l *RequestStructureLogger) NewStructuredEntry(r *http.Request) middleware.LogEntry {
 	entry := &StructuredLoggerEntry{logger: logrus.NewEntry(l.logger)}
 
 	logFields := logrus.Fields{}
 
 	logFields["@timestamp"] = time.Now().Format(time.RFC3339Nano)
 
-	if reqID := clmiddleware.GetReqID(r.Context()); reqID != "" {
+	if reqID := middleware.GetReqID(r.Context()); reqID != "" {
 		logFields["req_id"] = reqID
 	}
 
