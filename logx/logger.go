@@ -3,7 +3,6 @@ package logx
 import (
 	"context"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/fsnotify/fsnotify"
@@ -57,15 +56,12 @@ var (
 )
 
 var (
-	_once      sync.Once
 	_stdLogger Logger
 )
 
 func Init(cfg *LogCfg) {
 	if _stdLogger == nil {
-		_once.Do(func() {
-			_stdLogger = new(cfg)
-		})
+		_stdLogger = new(cfg)
 	}
 }
 
@@ -177,9 +173,7 @@ func (logger *logger) SetLogLevel(level string) error {
 
 func getLogger() Logger {
 	if _stdLogger == nil {
-		_once.Do(func() {
-			new(&LogCfg{})
-		})
+		new(&LogCfg{})
 	}
 	return _stdLogger
 }
