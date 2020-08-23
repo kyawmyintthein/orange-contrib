@@ -59,10 +59,11 @@ var (
 	_stdLogger Logger
 )
 
-func Init(cfg *LogCfg) {
+func Init(cfg *LogCfg) Logger {
 	if _stdLogger == nil {
 		_stdLogger = new(cfg)
 	}
+	return _stdLogger
 }
 
 func New(cfg *LogCfg) Logger {

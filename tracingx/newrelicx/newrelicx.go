@@ -51,7 +51,7 @@ func New(cfg *NewrelicCfg, opts ...optionx.Option) (NewrelicTracer, error) {
 	app, err := newrelic.NewApplication(nrConfig)
 	if err != nil {
 		newrelicTracer.cfg.Enabled = false
-		newrelicTracer.logger.Error(context.Background(), err, "[%s] failed to initiate new-relic tracer", PackageName)
+		newrelicTracer.logger.Errorf(context.Background(), err, "[%s] failed to initiate new-relic tracer", PackageName)
 		return newrelicTracer, err
 	}
 	newrelicTracer.app = app
