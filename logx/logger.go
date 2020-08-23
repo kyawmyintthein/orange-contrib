@@ -173,7 +173,7 @@ func (logger *logger) SetLogLevel(level string) error {
 
 func getLogger() Logger {
 	if _stdLogger == nil {
-		new(&LogCfg{})
+		return new(&LogCfg{})
 	}
 	return _stdLogger
 }

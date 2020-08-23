@@ -1,0 +1,2 @@
+{"level":"info","msg":"[LOGx]:: initialized logx successfully","time":"2020-08-23T16:01:30+08:00"}
+{"error_message":"not found error","level":"error","messages":"not found error","msg":"Error! log error","root_cause":null,"stacktrace":null,"time":"2020-08-23T16:01:30+08:00"}
