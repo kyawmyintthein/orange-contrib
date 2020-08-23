@@ -36,13 +36,13 @@ type Logger interface {
 	DebugKVf(context.Context, KV, string, ...interface{})
 
 	SetLogLevel(string) error
-	getStructuredLogEntry(context.Context) *StructuredLoggerEntry
 }
 
 type logger struct {
 	cfg     *LogCfg
 	logrus  *logrus.Logger
 	logfile *os.File
+	absPath string
 }
 
 const (
@@ -52,20 +52,25 @@ const (
 )
 
 var (
-	once          sync.Once
-	defaultLogger Logger
+	_defaultFileFlag = os.O_APPEND | os.O_CREATE | os.O_WRONLY
+	_defaultFileMode = os.FileMode(0755)
+)
+
+var (
+	_once      sync.Once
+	_stdLogger Logger
 )
 
 func Init(cfg *LogCfg) {
-	if defaultLogger == nil {
-		once.Do(func() {
-			initDefaultLogger(cfg)
+	if _stdLogger == nil {
+		_once.Do(func() {
+			_stdLogger = new(cfg)
 		})
 	}
 }
 
-func initDefaultLogger(cfg *LogCfg) {
-	defaultLogger = new(cfg)
+func New(cfg *LogCfg) Logger {
+	return new(cfg)
 }
 
 func new(cfg *LogCfg) Logger {
@@ -77,10 +82,6 @@ func new(cfg *LogCfg) Logger {
 	go logger.watchLogRotation()
 
 	return logger
-}
-
-func New(cfg *LogCfg) Logger {
-	return new(cfg)
 }
 
 // create new logrus object
@@ -118,12 +119,12 @@ func (logger *logger) newLogrus() {
 	logger.logfile = logfile
 	logger.logrus.Out = logger.logfile
 
-	logger.logrus.Info("[%s]:: initialized logx successfully", PackageName)
+	logger.logrus.Infof("[%s]:: initialized logx successfully", PackageName)
 }
 
 func (logger *logger) watchLogRotation() {
 	if !logger.cfg.LogRotation {
-		logger.logrus.Info("[%s]:: disabled log rotation", PackageName)
+		logger.Infof(context.Background(), "[%s]:: disabled log rotation", PackageName)
 		return
 	}
 
@@ -137,9 +138,9 @@ func (logger *logger) watchLogRotation() {
 		for {
 			select {
 			case ev := <-watcher.Events:
-				if ev.Name == logger.cfg.LogFilePath && (ev.Op.String() == "REMOVE" || ev.Op.String() == "RENAME") {
+				if ev.Name == logger.absPath && (ev.Op.String() == "REMOVE" || ev.Op.String() == "RENAME") {
 					logger.logfile.Close()
-					f, err := os.OpenFile(logger.cfg.LogFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0755)
+					f, err := os.OpenFile(logger.cfg.LogFilePath, _defaultFileFlag, _defaultFileMode)
 					if err != nil {
 						panic(err)
 					}
@@ -153,7 +154,7 @@ func (logger *logger) watchLogRotation() {
 					}
 				}
 			case err := <-watcher.Errors:
-				logger.logrus.Error("[%s]:: failed to watch log file, Error :", err)
+				logger.Errorf(context.Background(), err, "[%s]:: failed to watch log file", PackageName)
 			}
 		}
 	}()
@@ -175,12 +176,12 @@ func (logger *logger) SetLogLevel(level string) error {
 }
 
 func getLogger() Logger {
-	if defaultLogger == nil {
-		once.Do(func() {
-			initDefaultLogger(&LogCfg{})
+	if _stdLogger == nil {
+		_once.Do(func() {
+			new(&LogCfg{})
 		})
 	}
-	return defaultLogger
+	return _stdLogger
 }
 
 func (l *logger) Error(ctx context.Context, err error, args ...interface{}) {
@@ -221,7 +222,7 @@ func (l *logger) Debug(ctx context.Context, args ...interface{}) {
 
 func (l *logger) Errorf(ctx context.Context, err error, message string, args ...interface{}) {
 	log := l.getStructuredLogEntry(ctx)
-	if log == nil {
+	if log != nil {
 		log.logger.WithFields(getErrorFields(err)).Errorf(message, args...)
 		return
 	}
