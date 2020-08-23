@@ -36,6 +36,7 @@ type Logger interface {
 	DebugKVf(context.Context, KV, string, ...interface{})
 
 	SetLogLevel(string) error
+	NewRequestLogger() func(next http.Handler) http.Handler
 }
 
 type logger struct {
