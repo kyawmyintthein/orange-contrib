@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"net/http"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -94,7 +95,7 @@ func (l *StructuredLoggerEntry) DebugKVf(ctx context.Context, kv KV, message str
 	l.logger.WithFields(fields).Debugf(message, args...)
 }
 
-func (l *StructuredLoggerEntry) Write(status, bytes int, elapsed time.Duration) {
+func (l *StructuredLoggerEntry) Write(status, bytes int, header http.Header, elapsed time.Duration, data interface{}) {
 	l.logger = l.logger.WithFields(logrus.Fields{
 		"resp_status": status, "resp_bytes_length": bytes,
 		"resp_elapsed_ms": float64(elapsed.Nanoseconds()) / 1000000.0,
