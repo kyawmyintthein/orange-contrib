@@ -51,12 +51,12 @@ func New(cfg *NewrelicCfg, opts ...optionx.Option) (NewrelicTracer, error) {
 	app, err := newrelic.NewApplication(nrConfig)
 	if err != nil {
 		newrelicTracer.cfg.Enabled = false
-		newrelicTracer.logger.Error(context.Background(), err, fmt.Sprint("[%s] failed to initiate new-relic tracer", PackageName))
+		newrelicTracer.logger.Error(context.Background(), err, "[%s] failed to initiate new-relic tracer", PackageName)
 		return newrelicTracer, err
 	}
 	newrelicTracer.app = app
 	newrelicTracer.cfg.Enabled = true
-	newrelicTracer.logger.Info(context.Background(), fmt.Sprint("[%s] Newrelic Tracer is successfully initiated", PackageName))
+	newrelicTracer.logger.Infof(context.Background(), "[%s] Newrelic Tracer is successfully initiated", PackageName)
 	return newrelicTracer, nil
 }
 
@@ -65,7 +65,7 @@ func (service *newrelicTracer) ChiMiddleware(next http.Handler) http.Handler {
 		urlPattern := getURLPattern(r)
 		_, ok := service.cfg.SkipURLs[urlPattern]
 		if !ok {
-			service.logger.Infof(r.Context(), "URL: '%s' is skip", urlPattern)
+			logx.Infof(r.Context(), "URL: '%s' is skip", urlPattern)
 		}
 		if service.IsEnabled() && ok {
 			txn := ((service.app).StartTransaction(r.URL.Path, w, r)).(newrelic.Transaction)
