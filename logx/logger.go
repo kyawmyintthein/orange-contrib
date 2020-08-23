@@ -2,6 +2,7 @@ package logx
 
 import (
 	"context"
+	"net/http"
 	"os"
 	"time"
 
@@ -423,4 +424,8 @@ func (logger *logger) getStructuredLogEntry(ctx context.Context) *StructuredLogg
 	}
 
 	return nil
+}
+
+func (logger *logger) NewRequestLogger() func(next http.Handler) http.Handler {
+	return middleware.RequestLogger(&RequestStructureLogger{logger.logrus})
 }
