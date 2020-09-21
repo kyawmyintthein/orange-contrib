@@ -29,16 +29,16 @@ func NewErrorX(messageFormat string, args ...interface{}) *ErrorX {
 	return err
 }
 
-func (e *ErrorX) Message() string {
-	return e.messageFormat
-}
-
 func (e *ErrorX) GetArgs() []interface{} {
 	return e.args
 }
 
 func (e *ErrorX) GetMessage() string {
 	return e.messageFormat
+}
+
+func (e *ErrorX) FormattedMessage() string {
+	return fmt.Sprintf(e.messageFormat, e.args...)
 }
 
 func (e *ErrorX) Wrap(err error) error {
