@@ -6,17 +6,28 @@ import (
 	"github.com/spf13/viper"
 )
 
-type memoryCache struct {
+type MemoryStorageCfg struct {
+	LocaleFiles []string `mapstructure:"locale_files" json:"locale_files"`
+}
+
+type memoryStorage struct {
+	cfg   *MemoryStorageCfg
 	viper *viper.Viper
 }
 
-func NewMemoryCache() Storage {
-	memoryCache := memoryCache{
+func NewMemoryStorage(cfg *MemoryStorageCfg) Storage {
+	memoryStorage := memoryStorage{
+		cfg:   cfg,
 		viper: viper.New(),
 	}
-	return &memoryCache
+	memoryStorage.viper.SetConfigName("locale")
+	for _, filepath := range cfg.LocaleFiles {
+		viper.AddConfigPath(filepath)
+		viper.MergeInConfig()
+	}
+	return &memoryStorage
 }
 
-func (cache *memoryCache) GetLocalizedMessage(locale string, key string) string {
+func (cache *memoryStorage) GetLocalizedMessage(locale string, key string) string {
 	return cache.viper.GetString(fmt.Sprintf("%s.%s", locale, key))
 }
