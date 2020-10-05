@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"time"
 
@@ -69,13 +70,12 @@ type HytrixHelper interface {
 
 type httpClient struct {
 	config         *HttpClientCfg
-	logger         logx.Logger
 	jaegerTracer   jaegerx.JaegerTracer
 	newrelicTracer newrelicx.NewrelicTracer
 }
 
-func NewHttpClient(cfg *HttpClientCfg, opts ...option.Option) HttpClient {
-	options := option.NewOptions(opts...)
+func NewHttpClient(cfg *HttpClientCfg, opts ...optionx.Option) HttpClient {
+	options := optionx.NewOptions(opts...)
 
 	httpClient := &httpClient{
 		config: cfg,
@@ -93,17 +93,9 @@ func NewHttpClient(cfg *HttpClientCfg, opts ...option.Option) HttpClient {
 		httpClient.jaegerTracer = jaeger
 	}
 
-	// set logger
-	logger, ok := options.Context.Value(loggerKey{}).(logx.Logger)
-	if logger != nil && ok {
-		httpClient.logger = logger
-	} else {
-		httpClient.logger = logging.DefaultLogger()
-	}
-
-	if httpClient.config.HytrixSetting.Enbled {
+	if httpClient.config.HytrixSetting.Enabled {
 		for commandName, _ := range httpClient.config.HytrixSetting.CommandSetting {
-			err := httpClient.ConfigureCommand(context.Background(), commandName)
+			httpClient.ConfigureCommand(context.Background(), commandName)
 		}
 	}
 
@@ -126,7 +118,7 @@ func (httpClient *httpClient) GET(ctx context.Context, url string, opts ...optio
 
 	//TODO: improvement
 	var span opentracing.Span
-	if httpClient.cfg.TurnOffJaeger || httpClient.jaegerTracer != nil && httpClient.jaegerTracer.IsEnabled() {
+	if httpClient.config.TurnOffJaeger || httpClient.jaegerTracer != nil && httpClient.jaegerTracer.IsEnabled() {
 		span = httpClient.jaegerTracer.HttpClientTracer(ctx, req, operationName)
 		defer span.Finish()
 	}
@@ -144,7 +136,7 @@ func (httpClient *httpClient) GET(ctx context.Context, url string, opts ...optio
 		}
 	}
 
-	httpClient.logger.InfoKVf(ctx, logging.KV{"URL": url, "Status": resp.Status, "Headers": resp.Header}, "[%s] Received response", httpGetMethod)
+	logx.InfoKVf(ctx, logx.KV{"URL": url, "Status": resp.Status, "Headers": resp.Header}, "[%s] Received response", httpGetMethod)
 	return resp, nil
 }
 
@@ -164,7 +156,7 @@ func (httpClient *httpClient) POST(ctx context.Context, url string, body io.Read
 
 	//TODO: improvement
 	var span opentracing.Span
-	if httpClient.cfg.TurnOffJaeger || httpClient.jaegerTracer != nil && httpClient.jaegerTracer.IsEnabled() {
+	if httpClient.config.TurnOffJaeger || httpClient.jaegerTracer != nil && httpClient.jaegerTracer.IsEnabled() {
 		span = httpClient.jaegerTracer.HttpClientTracer(ctx, req, operationName)
 		defer span.Finish()
 	}
@@ -182,7 +174,7 @@ func (httpClient *httpClient) POST(ctx context.Context, url string, body io.Read
 		}
 	}
 
-	httpClient.logger.InfoKVf(ctx, logging.KV{"URL": url, "Status": resp.Status, "Headers": resp.Header}, "[%s] Received response", httpPostMethod)
+	logx.InfoKVf(ctx, logx.KV{"URL": url, "Status": resp.Status, "Headers": resp.Header}, "[%s] Received response", httpPostMethod)
 	return resp, nil
 }
 
@@ -202,7 +194,7 @@ func (httpClient *httpClient) PUT(ctx context.Context, url string, body io.Reade
 
 	//TODO: improvement
 	var span opentracing.Span
-	if httpClient.cfg.TurnOffJaeger || httpClient.jaegerTracer != nil && httpClient.jaegerTracer.IsEnabled() {
+	if httpClient.config.TurnOffJaeger || httpClient.jaegerTracer != nil && httpClient.jaegerTracer.IsEnabled() {
 		span = httpClient.jaegerTracer.HttpClientTracer(ctx, req, operationName)
 		defer span.Finish()
 	}
@@ -220,7 +212,7 @@ func (httpClient *httpClient) PUT(ctx context.Context, url string, body io.Reade
 		}
 	}
 
-	httpClient.logger.InfoKVf(ctx, logging.KV{"URL": url, "Status": resp.Status, "Headers": resp.Header}, "[%s] Received response", httpPutMethod)
+	logx.InfoKVf(ctx, logx.KV{"URL": url, "Status": resp.Status, "Headers": resp.Header}, "[%s] Received response", httpPutMethod)
 	return resp, nil
 }
 
@@ -240,7 +232,7 @@ func (httpClient *httpClient) PATCH(ctx context.Context, url string, body io.Rea
 
 	//TODO: improvement
 	var span opentracing.Span
-	if httpClient.cfg.TurnOffJaeger || httpClient.jaegerTracer != nil && httpClient.jaegerTracer.IsEnabled() {
+	if httpClient.config.TurnOffJaeger || httpClient.jaegerTracer != nil && httpClient.jaegerTracer.IsEnabled() {
 		span = httpClient.jaegerTracer.HttpClientTracer(ctx, req, operationName)
 		defer span.Finish()
 	}
@@ -258,7 +250,7 @@ func (httpClient *httpClient) PATCH(ctx context.Context, url string, body io.Rea
 		}
 	}
 
-	httpClient.logger.InfoKVf(ctx, logging.KV{"URL": url, "Status": resp.Status, "Headers": resp.Header}, "[%s] Received response", httpPatchMethod)
+	logx.InfoKVf(ctx, logx.KV{"URL": url, "Status": resp.Status, "Headers": resp.Header}, "[%s] Received response", httpPatchMethod)
 	return resp, nil
 }
 
@@ -278,7 +270,7 @@ func (httpClient *httpClient) DELETE(ctx context.Context, url string, body io.Re
 
 	//TODO: improvement
 	var span opentracing.Span
-	if httpClient.cfg.TurnOffJaeger || httpClient.jaegerTracer != nil && httpClient.jaegerTracer.IsEnabled() {
+	if httpClient.config.TurnOffJaeger || httpClient.jaegerTracer != nil && httpClient.jaegerTracer.IsEnabled() {
 		span = httpClient.jaegerTracer.HttpClientTracer(ctx, req, operationName)
 		defer span.Finish()
 	}
@@ -296,7 +288,7 @@ func (httpClient *httpClient) DELETE(ctx context.Context, url string, body io.Re
 		}
 	}
 
-	httpClient.logger.InfoKVf(ctx, logging.KV{"URL": url, "Status": resp.Status, "Headers": resp.Header}, "[%s] Received response", httpPostMethod)
+	logx.InfoKVf(ctx, logx.KV{"URL": url, "Status": resp.Status, "Headers": resp.Header}, "[%s] Received response", httpPostMethod)
 	return resp, nil
 }
 
@@ -321,7 +313,7 @@ func (httpClient *httpClient) getOpNameFromOption(url string, httpMethod string,
 func (httpClient *httpClient) getRetrySetting(ctx context.Context, httpMethod string, url string) RetryCfg {
 	retryConfig, ok := httpClient.getAPISpecificRetrySetting(ctx, httpMethod, url)
 	if !ok {
-		retryConfig = httpClient.cfg.DefaultRetrySetting
+		retryConfig = httpClient.config.DefaultRetrySetting
 	}
 
 	if uint(len(retryConfig.BackOffDurations)) < retryConfig.MaxRetryAttempts {
@@ -347,7 +339,7 @@ func (httpClient *httpClient) getRetrySetting(ctx context.Context, httpMethod st
 
 func (httpClient *httpClient) getAPISpecificRetrySetting(ctx context.Context, httpMethod string, url string) (RetryCfg, bool) {
 	key := fmt.Sprintf("[%s]::/%s", httpMethod, url)
-	retryConfig, ok := httpClient.cfg.APISpecificRetrySetting[key]
+	retryConfig, ok := httpClient.config.APISpecificRetrySetting[key]
 	return retryConfig, ok
 }
 
@@ -369,13 +361,13 @@ func (httpClient *httpClient) firstAttemptAndRetry(ctx context.Context, retryCon
 
 	// without retry
 	if !retryConfig.Enabled {
-		if httpClient.cfg.TurnOffHytrix {
+		if httpClient.config.HytrixSetting.Enabled {
 			// no retry and circuit breaker
 			return httpClient.sendHttpRequest(ctx, req, operationName, options)
 		}
 
 		// no retry with circuit breaker
-		hystrix.Do(ctx, operationName,
+		hystrix.Do(operationName,
 			func() error {
 				resp, err := httpClient.sendHttpRequest(ctx, req, operationName, options)
 				if bodyReader != nil {
@@ -387,7 +379,7 @@ func (httpClient *httpClient) firstAttemptAndRetry(ctx context.Context, retryCon
 				}
 
 				if resp.StatusCode >= http.StatusInternalServerError {
-					return err5xx
+					return NewServerError(req.URL.String(), resp.StatusCode)
 				}
 				return nil
 			},
@@ -399,7 +391,7 @@ func (httpClient *httpClient) firstAttemptAndRetry(ctx context.Context, retryCon
 
 	// with retry
 	for count := uint(0); count <= retryConfig.MaxRetryAttempts; count++ {
-		if httpClient.cfg.TurnOffHytrix {
+		if httpClient.config.HytrixSetting.Enabled {
 			// retry without circuit breaker
 			resp, err := httpClient.sendHttpRequest(ctx, req, operationName, options)
 			if bodyReader != nil {
@@ -407,7 +399,7 @@ func (httpClient *httpClient) firstAttemptAndRetry(ctx context.Context, retryCon
 			}
 
 			if err == nil && resp.StatusCode >= http.StatusInternalServerError {
-				err = err5xx
+				err = NewServerError(req.URL.String(), resp.StatusCode)
 			}
 			if err != nil {
 				backOffDuration := defaultBackOffDuration
@@ -419,7 +411,7 @@ func (httpClient *httpClient) firstAttemptAndRetry(ctx context.Context, retryCon
 			}
 		} else {
 			// retry with circuit beaker
-			hystrix.Do(ctx, operationName,
+			hystrix.Do(operationName,
 				func() error {
 					resp, err := httpClient.sendHttpRequest(ctx, req, operationName, options)
 					if bodyReader != nil {
@@ -431,7 +423,7 @@ func (httpClient *httpClient) firstAttemptAndRetry(ctx context.Context, retryCon
 					}
 
 					if resp.StatusCode >= http.StatusInternalServerError {
-						return err5xx
+						return NewServerError(req.URL.String(), resp.StatusCode)
 					}
 					return nil
 				},
@@ -461,7 +453,7 @@ func (httpClient *httpClient) sendHttpRequest(ctx context.Context, req *http.Req
 	}
 	client.Timeout = requestTimeout * time.Second
 
-	if httpClient.cfg.TurnOffNewrelic || httpClient.newrelicTracer == nil || !httpClient.newrelicTracer.IsEnabled() {
+	if httpClient.config.TurnOffNewrelic || httpClient.newrelicTracer == nil || !httpClient.newrelicTracer.IsEnabled() {
 		return client.Do(req)
 	}
 
@@ -475,7 +467,7 @@ func (httpClient *httpClient) sendHttpRequest(ctx context.Context, req *http.Req
 }
 
 func (httpClient *httpClient) ConfigureCommand(ctx context.Context, commandName string) {
-	hytrixSetting, foundCommand := httpClient.config.hytrixSetting.CommandSetting[commandName]
+	hytrixSetting, foundCommand := httpClient.config.HytrixSetting.CommandSetting[commandName]
 	if !foundCommand {
 		logx.Infof(ctx, "[%s] command '%s' not found in Hytrix configuration setting", PackageName, commandName)
 		return
@@ -485,12 +477,12 @@ func (httpClient *httpClient) ConfigureCommand(ctx context.Context, commandName 
 		hytrixSetting.Timeout = defaultHytrixTimeout
 	}
 
-	if hytrixSetting.MaxConcurrentRequests == 0 {
-		hytrixSetting.MaxConcurrentRequests = defaultHytrixMaxConcurrentRequests
+	if hytrixSetting.MaxConcurrentRequest == 0 {
+		hytrixSetting.MaxConcurrentRequest = defaultHytrixMaxConcurrentRequests
 	}
 
 	if hytrixSetting.RequestVolumeThreshold == 0 {
-		hytrixSetting.RequestVolumeThreshold = defaultHytrixRequestVolumeThreshold
+		hytrixSetting.RequestVolumeThreshold = defaultRequestVolumeThreshold
 	}
 
 	if hytrixSetting.SleepWindow == 0 {
@@ -503,8 +495,8 @@ func (httpClient *httpClient) ConfigureCommand(ctx context.Context, commandName 
 
 	if hytrixSetting.Enabled {
 		hystrix.ConfigureCommand(commandName, hystrix.CommandConfig{
-			Timeout:                durationToInt(hytrixSetting.Timeout, time.Millisecond),
-			MaxConcurrentRequests:  hytrixSetting.MaxConcurrentRequests,
+			Timeout:                durationToInt(time.Duration(hytrixSetting.Timeout), time.Millisecond),
+			MaxConcurrentRequests:  hytrixSetting.MaxConcurrentRequest,
 			RequestVolumeThreshold: hytrixSetting.RequestVolumeThreshold,
 			SleepWindow:            hytrixSetting.SleepWindow,
 			ErrorPercentThreshold:  hytrixSetting.ErrorPercentThreshold,
@@ -516,8 +508,8 @@ func (httpClient *httpClient) ConfigureCommand(ctx context.Context, commandName 
 func durationToInt(duration, unit time.Duration) int {
 	durationAsNumber := duration / unit
 
-	if int64(durationAsNumber) > int64(maxInt) {
-		return maxInt
+	if int64(durationAsNumber) > math.MaxInt64 {
+		return math.MaxInt64
 	}
 	return int(durationAsNumber)
 }

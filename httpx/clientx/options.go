@@ -100,8 +100,8 @@ func WithRetrySetting(obj *RetryCfg) optionx.Option {
 
 type httpRequestTimeoutKey struct{}
 
-func WithRequestTimeout(timeout time.Duration) option.Option {
-	return func(o *option.Options) {
+func WithRequestTimeout(timeout time.Duration) optionx.Option {
+	return func(o *optionx.Options) {
 		if o.Context == nil {
 			o.Context = context.Background()
 		}
