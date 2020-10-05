@@ -34,7 +34,7 @@ type jaegerClient struct {
 	logger logx.Logger
 }
 
-func New(cfg *JaegerCfg, opts ...optionx.Option) (Jaeger, error) {
+func New(cfg *JaegerCfg, opts ...optionx.Option) (JaegerTracer, error) {
 	options := optionx.NewOptions(opts...)
 
 	jaegerClient := jaegerClient{
